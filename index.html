@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#6c5ce7">
+  <meta name="description" content="오프라인에서도 쓸 수 있는 개인 일기장">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="일기장">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>나의 일기장</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 목록 화면 -->
+  <section id="home" class="view">
+    <header class="topbar">
+      <h1>나의 일기장</h1>
+      <div class="actions">
+        <button id="installBtn" class="icon-btn" hidden title="앱 설치" aria-label="앱 설치">⤓</button>
+        <button id="viewToggle" class="icon-btn" title="달력 보기" aria-label="달력 보기">📅</button>
+        <button id="menuBtn" class="icon-btn" title="설정" aria-label="설정">⋯</button>
+      </div>
+    </header>
+
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="일기 검색…" autocomplete="off">
+    </div>
+
+    <div id="stats" class="stats"></div>
+
+    <div id="calendar" class="calendar" hidden>
+      <div class="cal-head">
+        <button id="calPrev" class="icon-btn" aria-label="이전 달">‹</button>
+        <strong id="calTitle"></strong>
+        <button id="calNext" class="icon-btn" aria-label="다음 달">›</button>
+      </div>
+      <div class="cal-grid cal-week">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+    </div>
+
+    <main id="list" class="list"></main>
+
+    <button id="newBtn" class="fab" aria-label="새 일기 쓰기">✎</button>
+  </section>
+
+  <!-- 작성/편집 화면 -->
+  <section id="editor" class="view editor" hidden>
+    <header class="topbar">
+      <button id="backBtn" class="icon-btn" aria-label="뒤로">←</button>
+      <input id="date" type="date" class="date-input" aria-label="날짜">
+      <div class="actions">
+        <button id="deleteBtn" class="icon-btn danger" title="삭제" aria-label="삭제">🗑</button>
+        <button id="saveBtn" class="btn primary">저장</button>
+      </div>
+    </header>
+
+    <div class="editor-body">
+      <div class="moods" id="moods" role="radiogroup" aria-label="오늘의 기분"></div>
+      <input id="title" class="title-input" type="text" placeholder="제목" maxlength="100">
+      <textarea id="content" class="content-input" placeholder="오늘 하루는 어땠나요?"></textarea>
+      <div class="tag-row">
+        <input id="tags" type="text" placeholder="#태그 (쉼표나 공백으로 구분)">
+      </div>
+      <p id="meta" class="meta"></p>
+    </div>
+  </section>
+
+  <!-- 설정 -->
+  <dialog id="menu" class="sheet">
+    <h2>설정</h2>
+    <label class="row">
+      <span>테마</span>
+      <select id="theme">
+        <option value="system">시스템 설정</option>
+        <option value="light">밝게</option>
+        <option value="dark">어둡게</option>
+      </select>
+    </label>
+    <button id="exportBtn" class="btn block">일기 백업 (JSON 내보내기)</button>
+    <label class="btn block file-btn">
+      백업 불러오기
+      <input id="importInput" type="file" accept="application/json,.json" hidden>
+    </label>
+    <p class="hint">일기는 이 기기의 브라우저 안에만 저장돼요. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 백업해 두세요.</p>
+    <form method="dialog"><button class="btn block">닫기</button></form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
