@@ -28,3 +28,11 @@ jobs:
         with:
           name: kakao-digest-apk
           path: kakao-digest/app/build/outputs/apk/debug/app-debug.apk
+      - name: Inspect APK (manifest, signature)
+        if: always()
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$BT/aapt2" dump badging "$APK" | head -30
+          "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml | grep -iE "testOnly|debuggable|minSdk|targetSdk" || true
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | head -20
