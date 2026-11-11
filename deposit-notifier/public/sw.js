@@ -1,5 +1,5 @@
 // 화면 파일만 캐시합니다. /api/ 요청은 항상 서버로 보냅니다.
-const CACHE = 'deposit-notifier-v1';
+const CACHE = 'deposit-notifier-v2';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {

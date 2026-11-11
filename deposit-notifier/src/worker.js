@@ -53,12 +53,52 @@ async function saveSetting(env, key, value) {
     .bind(key, String(value ?? '')).run();
 }
 
+// ---------- 비밀값 (서버 secret 우선, 없으면 앱 설정 화면에서 입력한 값) ----------
+async function getRaw(env, key) {
+  const r = await env.DB.prepare('SELECT value FROM settings WHERE key = ?1').bind(key).first();
+  return r?.value || '';
+}
+async function appKey(env) {
+  return env.KAKAOWORK_APP_KEY || (await getRaw(env, 'secret.kakaoAppKey'));
+}
+function randomToken(bytes = 24) {
+  const a = crypto.getRandomValues(new Uint8Array(bytes));
+  return btoa(String.fromCharCode(...a)).replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' }[c]));
+}
+/** 휴대폰(MacroDroid) 전송용 토큰. 서버 secret 이 없으면 처음 한 번 자동 생성 */
+async function notifyToken(env) {
+  if (env.NOTIFY_TOKEN) return env.NOTIFY_TOKEN;
+  let t = await getRaw(env, 'secret.notifyToken');
+  if (!t) { t = randomToken(); await saveSetting(env, 'secret.notifyToken', t); }
+  return t;
+}
+async function passwordHash(pw, salt) {
+  return sha256(`${salt}:${pw}`);
+}
+async function hasPassword(env) {
+  return !!(env.APP_PASSWORD || (await getRaw(env, 'secret.passwordHash')));
+}
+async function checkPassword(env, pw) {
+  if (!pw) return false;
+  if (env.APP_PASSWORD) return safeEqual(pw, env.APP_PASSWORD);
+  const hash = await getRaw(env, 'secret.passwordHash');
+  if (!hash) return false;
+  return safeEqual(await passwordHash(pw, await getRaw(env, 'secret.passwordSalt')), hash);
+}
+async function setPassword(env, pw) {
+  if (String(pw || '').length < 6) throw new Error('비밀번호는 6자 이상으로 정하세요');
+  const salt = randomToken(12);
+  await saveSetting(env, 'secret.passwordSalt', salt);
+  await saveSetting(env, 'secret.passwordHash', await passwordHash(pw, salt));
+}
+
 // ---------- 카카오워크 ----------
 async function kakao(env, method, path, body) {
-  if (!env.KAKAOWORK_APP_KEY) throw new Error('KAKAOWORK_APP_KEY 가 설정되지 않았습니다');
+  const key = await appKey(env);
+  if (!key) throw new Error('카카오워크 봇 App Key가 없습니다 (설정 탭에서 입력)');
   const res = await fetch((env.KAKAOWORK_API_BASE || KW_API) + path, {
     method,
-    headers: { Authorization: `Bearer ${env.KAKAOWORK_APP_KEY}`, 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json; charset=utf-8' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -134,7 +174,7 @@ async function readNotifyBody(request) {
 async function handleNotify(request, env) {
   const url = new URL(request.url);
   const token = url.searchParams.get('token') || request.headers.get('X-Token') || '';
-  if (!safeEqual(token, env.NOTIFY_TOKEN)) return fail('토큰이 올바르지 않습니다', 401);
+  if (!safeEqual(token, await notifyToken(env))) return fail('토큰이 올바르지 않습니다', 401);
 
   const text = await readNotifyBody(request);
   if (!text) return fail('알림 내용이 비어 있습니다');
@@ -184,7 +224,7 @@ async function state(env) {
   return {
     ok: true,
     pending, done, deposits,
-    settings: { ...settings, hasAppKey: !!env.KAKAOWORK_APP_KEY },
+    settings: { ...settings, hasAppKey: !!(await appKey(env)), notifyToken: await notifyToken(env), passwordFromServer: !!env.APP_PASSWORD },
   };
 }
 
@@ -261,6 +301,25 @@ async function api(request, env, path) {
     return json({ ok: true, settings: await getSettings(env) });
   }
 
+  // 카카오워크 App Key 입력 (저장만 하고 다시 보여주지 않음)
+  if (path === '/api/secret/appkey' && method === 'POST') {
+    const key = String(body.appKey || '').trim();
+    if (key.length < 10) return fail('App Key를 확인하세요');
+    await saveSetting(env, 'secret.kakaoAppKey', key);
+    return json({ ok: true });
+  }
+  if (path === '/api/secret/password' && method === 'POST') {
+    if (env.APP_PASSWORD) return fail('비밀번호가 서버(secret)에 설정되어 있어 여기서 바꿀 수 없습니다');
+    await setPassword(env, body.password);
+    return json({ ok: true });
+  }
+  // 휴대폰 전송 토큰 새로 만들기 (토큰이 새어 나갔을 때)
+  if (path === '/api/secret/notify-token' && method === 'POST') {
+    if (env.NOTIFY_TOKEN) return fail('토큰이 서버(secret)에 설정되어 있어 여기서 바꿀 수 없습니다');
+    await saveSetting(env, 'secret.notifyToken', randomToken());
+    return json({ ok: true, notifyToken: await notifyToken(env) });
+  }
+
   if (path === '/api/kakao/conversations' && method === 'GET') {
     const data = await kakao(env, 'GET', 'conversations.list?limit=100');
     return json({ ok: true, conversations: data.conversations || [] });
@@ -301,8 +360,16 @@ export default {
         if (request.method !== 'POST' && request.method !== 'GET') return fail('POST로 보내세요', 405);
         return await handleNotify(request, env);
       }
+      // 처음 설치: 비밀번호가 아직 없으면 첫 화면에서 정함
+      if (path === '/api/setup') {
+        if (request.method === 'GET') return json({ ok: true, needsPassword: !(await hasPassword(env)) });
+        if (await hasPassword(env)) return fail('이미 비밀번호가 정해져 있습니다', 403);
+        const b = await request.json().catch(() => ({}));
+        await setPassword(env, b.password);
+        return json({ ok: true });
+      }
       const auth = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-      if (!safeEqual(auth, env.APP_PASSWORD)) return fail('비밀번호가 올바르지 않습니다', 401);
+      if (!(await checkPassword(env, auth))) return fail('비밀번호가 올바르지 않습니다', 401);
       if (path === '/api/login') return json({ ok: true });
       return await api(request, env, path);
     } catch (e) {

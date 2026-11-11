@@ -44,9 +44,19 @@ async function guard(btn, fn) {
 }
 
 // ---------- 로그인 ----------
-function showLogin() {
+let setupMode = false;
+async function showLogin() {
   $('#login').hidden = false;
   $('#main').hidden = true;
+  try {
+    const r = await (await fetch('/api/setup')).json();
+    setupMode = !!r.needsPassword;
+  } catch { setupMode = false; }
+  $('#setupHint').hidden = !setupMode;
+  $('#pw2').hidden = !setupMode;
+  $('#pw2').required = setupMode;
+  $('#pw').placeholder = setupMode ? '새 앱 비밀번호' : '앱 비밀번호';
+  $('#loginBtn').textContent = setupMode ? '비밀번호 정하고 시작' : '시작하기';
   $('#pw').focus();
 }
 function logout() {
@@ -60,6 +70,12 @@ $('#loginForm').addEventListener('submit', async (e) => {
   password = $('#pw').value;
   $('#loginErr').textContent = '';
   try {
+    if (setupMode) {
+      if (password !== $('#pw2').value) throw new Error('두 비밀번호가 다릅니다');
+      const r = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const out = await r.json();
+      if (!out.ok) throw new Error(out.error);
+    }
     await call('/api/login', { method: 'POST' });
     try { localStorage.setItem(PW_KEY, password); } catch { /* 무시 */ }
     start();
@@ -123,7 +139,9 @@ function render() {
   $('#convNow').textContent = settings.conversationId
     ? `현재: ${settings.conversationName || '대화방'} (ID ${settings.conversationId})`
     : '아직 대화방이 선택되지 않았습니다.';
-  if (!settings.hasAppKey) $('#convNow').textContent += ' ⚠️ 서버에 KAKAOWORK_APP_KEY가 없습니다.';
+  $('#keyNow').textContent = settings.hasAppKey ? '✅ 등록되어 있습니다 (바꿀 때만 다시 입력)' : '⚠️ 아직 없습니다. 카카오워크 관리자 페이지에서 만든 봇의 App Key를 넣으세요.';
+  $('#notifyUrl').textContent = `${location.origin}/api/notify?token=${settings.notifyToken}`;
+  $('#pwCard').hidden = settings.passwordFromServer;
   if (!render.filled) {
     $('#template').value = settings.template;
     $('#expireDays').value = settings.expireDays;
@@ -143,7 +161,6 @@ async function refresh() {
 function start() {
   $('#login').hidden = true;
   $('#main').hidden = false;
-  $('#notifyUrl').textContent = `${location.origin}/api/notify?token=TOKEN`;
   refresh();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => { if (!document.hidden) refresh(); }, 15000);
@@ -252,6 +269,29 @@ $('#saveSettings').addEventListener('click', (e) => guard(e.target, async () => 
   await call('/api/settings', { method: 'POST', body: { template: $('#template').value, expireDays: $('#expireDays').value || 7 } });
   toast('저장했습니다');
   await refresh();
+}));
+$('#saveKey').addEventListener('click', (e) => guard(e.target, async () => {
+  await call('/api/secret/appkey', { method: 'POST', body: { appKey: $('#appKey').value } });
+  $('#appKey').value = '';
+  toast('App Key를 저장했습니다');
+  await refresh();
+}));
+$('#copyUrl').addEventListener('click', async () => {
+  const url = $('#notifyUrl').textContent;
+  try { await navigator.clipboard.writeText(url); toast('복사했습니다. MacroDroid에 붙여넣으세요'); }
+  catch { getSelection().selectAllChildren($('#notifyUrl')); toast('주소를 길게 눌러 복사하세요'); }
+});
+$('#newToken').addEventListener('click', (e) => {
+  if (!confirm('주소를 새로 만들면 MacroDroid에 넣은 주소도 바꿔야 합니다. 계속할까요?')) return;
+  guard(e.target, async () => { await call('/api/secret/notify-token', { method: 'POST' }); toast('새 주소를 만들었습니다'); await refresh(); });
+});
+$('#savePw').addEventListener('click', (e) => guard(e.target, async () => {
+  const pw = $('#newPw').value;
+  await call('/api/secret/password', { method: 'POST', body: { password: pw } });
+  password = pw;
+  try { localStorage.setItem(PW_KEY, pw); } catch { /* 무시 */ }
+  $('#newPw').value = '';
+  toast('비밀번호를 바꿨습니다. 다른 직원에게도 알려주세요');
 }));
 $('#parseBtn').addEventListener('click', (e) => guard(e.target, async () => {
   const r = await call('/api/test-parse', { method: 'POST', body: { text: $('#parseText').value } });

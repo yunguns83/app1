@@ -42,7 +42,13 @@
 1. 카카오워크 **관리자 페이지 → 봇**에서 봇을 만들고 **App Key**를 복사합니다. (회사 관리자 권한 필요)
 2. 봇은 기존 단체방에 초대할 수 없고 **봇이 직접 방을 엽니다.** 4단계의 설정 화면에서 직원 이메일을 넣으면 봇이 단체방을 만들어 줍니다.
 
-### 2. 서버 올리기 (Cloudflare, 무료)
+### 2-A. PC 없이 폰으로만 할 때
+1. 폰 브라우저에서 [Cloudflare](https://dash.cloudflare.com) 가입
+2. 내 프로필 → **API 토큰** → 토큰 만들기 → **'Cloudflare Workers 편집'** 템플릿 선택 → 권한에 **D1 편집**이 없으면 추가 → 토큰 만들기
+3. Claude에게 "토큰 준비됐어"라고 말하면, 토큰 입력 창이 뜹니다 (채팅에 붙여넣지 마세요). Claude가 서버를 올리고 주소를 알려드립니다.
+4. 앱 주소로 들어가면 **첫 화면에서 앱 비밀번호를 정하고**, 설정 탭에서 **App Key 입력**과 **휴대폰 연결 주소 복사**를 합니다. (아래 secret 명령은 필요 없음)
+
+### 2-B. 서버 올리기 (PC, Cloudflare 무료)
 [Cloudflare](https://dash.cloudflare.com) 가입 후, PC에 [Node.js](https://nodejs.org)를 설치하고 이 폴더에서:
 
 ```bash
@@ -50,10 +56,9 @@ npm install
 npx wrangler login
 npx wrangler d1 create deposit-notifier      # 출력된 database_id 를 wrangler.toml 에 붙여넣기
 npm run db:init                              # 표 만들기
-npx wrangler secret put KAKAOWORK_APP_KEY    # 1단계의 App Key
-npx wrangler secret put APP_PASSWORD         # 직원들이 앱에 들어갈 때 쓸 비밀번호
-npx wrangler secret put NOTIFY_TOKEN         # 휴대폰 전송용 긴 임의 문자열 (예: 32자 이상)
 npm run deploy
+# 비밀번호·App Key·휴대폰 토큰은 앱 화면에서 정할 수 있습니다.
+# 서버 secret 으로 고정하고 싶다면(선택): npx wrangler secret put APP_PASSWORD / KAKAOWORK_APP_KEY / NOTIFY_TOKEN
 ```
 마지막에 나오는 `https://deposit-notifier.○○○.workers.dev` 가 앱 주소입니다.
 
@@ -63,7 +68,7 @@ Play 스토어에서 **MacroDroid** 설치 → 새 매크로:
 - **트리거**: 알림 → *알림 수신* → 은행 앱 선택 → 텍스트 *포함* `입금`
 - **동작**: 인터넷/웹 → *HTTP 요청*
   - 방식: `POST`
-  - URL: `https://<앱 주소>/api/notify?token=<NOTIFY_TOKEN>`
+  - URL: 앱 **설정 탭 → 휴대폰 연결 주소 → [주소 복사]** 한 것을 붙여넣기
   - 본문(Body) 형식: `text/plain`
   - 본문: `[not_title] [notification]` (알림 제목 + 내용 변수)
 - 저장 후 MacroDroid에 **알림 접근 권한**을 허용하고, 설정 → 배터리에서 MacroDroid를 **'제한 없음'**으로 둡니다. (안 하면 몇 시간 뒤 멈출 수 있음)

@@ -18,9 +18,11 @@
   <section id="login" class="login" hidden>
     <img src="icons/icon.svg" alt="" width="72" height="72">
     <h1>입금 알림</h1>
+    <p id="setupHint" class="hint" hidden>처음 사용입니다. 직원들과 함께 쓸 앱 비밀번호를 정하세요 (6자 이상).</p>
     <form id="loginForm">
       <input id="pw" type="password" placeholder="앱 비밀번호" autocomplete="current-password" required>
-      <button class="primary" type="submit">시작하기</button>
+      <input id="pw2" type="password" placeholder="비밀번호 한 번 더" autocomplete="new-password" hidden>
+      <button class="primary" type="submit" id="loginBtn">시작하기</button>
       <p id="loginErr" class="err"></p>
     </form>
   </section>
@@ -69,6 +71,15 @@
     <!-- 설정 -->
     <div id="tab-settings" class="tab" hidden>
       <div class="card">
+        <h3>카카오워크 봇 App Key</h3>
+        <p id="keyNow" class="hint"></p>
+        <div class="row">
+          <input id="appKey" type="password" placeholder="봇 App Key 붙여넣기" autocomplete="off">
+          <button id="saveKey" class="ghost" type="button">저장</button>
+        </div>
+      </div>
+
+      <div class="card">
         <h3>카카오워크 대화방</h3>
         <p id="convNow" class="hint"></p>
         <div class="row">
@@ -101,8 +112,20 @@
 
       <div class="card">
         <h3>휴대폰 연결 주소 (MacroDroid)</h3>
+        <p class="hint">MacroDroid의 HTTP 요청 URL에 그대로 붙여넣으세요. <b>다른 사람에게 보내지 마세요.</b></p>
         <code id="notifyUrl" class="code"></code>
-        <p class="hint">TOKEN 자리에 서버에 등록한 NOTIFY_TOKEN 값을 넣으세요. 자세한 방법은 README 참고.</p>
+        <div class="row">
+          <button id="copyUrl" class="primary" type="button">주소 복사</button>
+          <button id="newToken" class="ghost" type="button">주소 새로 만들기</button>
+        </div>
+      </div>
+
+      <div class="card" id="pwCard">
+        <h3>앱 비밀번호 바꾸기</h3>
+        <div class="row">
+          <input id="newPw" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+          <button id="savePw" class="ghost" type="button">변경</button>
+        </div>
       </div>
 
       <button id="logout" class="ghost danger" type="button">로그아웃</button>
