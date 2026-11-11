@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isDeposit, extractAmount, findMatch, nameInText, redactBalance, buildMessage } from '../src/parse.js';
+import { isDeposit, extractAmount, findMatch, nameInText, redactBalance, buildMessage, sameDeposit } from '../src/parse.js';
 
 const samples = [
   // [알림 문구, 입금 여부, 금액]
@@ -13,6 +13,15 @@ const samples = [
   ['신한카드 승인 홍길동 12,000원 일시불 결제', false, null],
   ['입금취소 50,000원 홍길동', false, null],
   ['우리은행 입출금 알림 이체출금 30,000원', false, null],
+  // 기업은행 (i-ONE Bank) — 예상 형식, 실제 문구로 확인 필요
+  ['[IBK기업은행] 입금 50,000원 홍길동 11/11 10:23 123-******-01-011 잔액1,234,567원', true, 50000],
+  ['IBK기업은행 입금 50,000원 홍길동 잔액 1,234,567원', true, 50000],
+  ['기업 11/11 10:23 123-******-01-011 출금 30,000원 쿠팡 잔액1,204,567원', false, null],
+  // 토스 — 예상 형식, 실제 문구로 확인 필요
+  ['50,000원 입금 홍길동 → 기업 123-******-01-011', true, 50000],
+  ['홍길동님이 50,000원을 보냈어요', true, 50000],
+  ['홍길동님에게 50,000원을 보냈어요', false, null],
+  ['토스 결제 12,000원 스타벅스', false, null],
 ];
 
 test('입금 여부와 금액', () => {
@@ -60,4 +69,14 @@ test('메시지 생성', () => {
   assert.match(msg, /금액: 40,000원/);
   assert.match(msg, /입금자: 박철수/);
   assert.match(msg, /예상 금액\(45,000원\)과 다릅니다/);
+});
+
+test('기업은행 앱과 토스 앱에서 온 같은 입금은 하나로 본다', () => {
+  const ibk = { amount: 50000, text: '[IBK기업은행] 입금 50,000원 홍길동 11/11 10:23 잔액 ***' };
+  assert.ok(sameDeposit(ibk, { amount: 50000, text: '50,000원 입금 홍길동 → 기업 123-******-01-011' }));
+  assert.ok(sameDeposit(ibk, { amount: 50000, text: '홍길동님이 50,000원을 보냈어요' }));
+  // 같은 금액이라도 다른 사람이면 별개
+  assert.ok(!sameDeposit(ibk, { amount: 50000, text: '50,000원 입금 김영희 → 기업' }));
+  // 같은 사람이라도 금액이 다르면 별개
+  assert.ok(!sameDeposit(ibk, { amount: 30000, text: '30,000원 입금 홍길동 → 기업' }));
 });

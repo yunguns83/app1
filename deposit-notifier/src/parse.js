@@ -11,11 +11,13 @@ export function redactBalance(text) {
 }
 
 /** 입금 알림인지 판단. '입출금통장' 같은 단어는 제외하고 본다. */
+// 토스 받은 돈 알림: "홍길동님이 50,000원을 보냈어요" (보낸 돈은 "~님에게 보냈어요"라서 해당 안 됨)
+const TOSS_IN = /님이\s*[\d,]+\s*원을?\s*(보냈어요|입금했어요)/;
+
 export function isDeposit(text) {
   const t = String(text || '').replace(/입출금/g, '');
-  if (!/입금/.test(t)) return false;
-  if (/출금|입금\s*취소|취소|지급|결제|송금완료/.test(t)) return false;
-  return true;
+  if (/출금|입금\s*취소|취소|지급|결제|송금완료|님에게/.test(t)) return false;
+  return /입금/.test(t) || TOSS_IN.test(t);
 }
 
 /**
@@ -26,7 +28,7 @@ export function extractAmount(text) {
   const t = String(text || '');
   const re = /(\d{1,3}(?:,\d{3})+|\d+)(\s*원)?/g;
   const anchors = [];
-  for (const m of t.matchAll(/입금/g)) anchors.push(m.index);
+  for (const m of t.matchAll(/입금|보냈어요/g)) anchors.push(m.index);
   let best = null;
   for (const m of t.matchAll(re)) {
     const hasComma = m[1].includes(',');
@@ -104,4 +106,24 @@ export function buildMessage({ template, patient, depositor, amount, expected, m
     msg += `\n⚠️ 예상 금액(${formatWon(expected)}원)과 다릅니다`;
   }
   return msg;
+}
+
+// 은행·앱 이름 등 이름 비교에서 뺄 단어
+const STOP = new Set(['입금', '잔액', '잔고', '기업', '기업은행', '은행', '토스', '토스뱅크', '통장', '계좌', '알림',
+  '보냈어요', '입금했어요', '원을', '내통장', '입금알림', '받은', '송금', '이체', '저축예금', '보통예금']);
+function nameTokens(text) {
+  return new Set((String(text || '').match(/[가-힣]{2,6}/g) || [])
+    .map((w) => w.replace(/(님이|님|에게|으로|로부터)$/, ''))
+    .filter((w) => w.length >= 2 && !STOP.has(w)));
+}
+
+/**
+ * 같은 입금이 다른 앱에서 또 온 알림인지 (예: 기업은행 앱 + 토스 앱).
+ * 금액이 같고, 은행 이름 등을 뺀 한글 단어(입금자 이름)가 하나라도 겹치면 같은 입금으로 본다.
+ */
+export function sameDeposit(a, b) {
+  if (!a?.amount || a.amount !== b?.amount) return false;
+  const ta = nameTokens(a.text);
+  for (const w of nameTokens(b.text)) if (ta.has(w)) return true;
+  return false;
 }

@@ -1,11 +1,12 @@
 // 카카오워크 입금 알림 - Cloudflare Worker (API 서버)
 import {
-  isDeposit, extractAmount, findMatch, buildMessage, redactBalance, nameInText, DEFAULT_TEMPLATE,
+  isDeposit, extractAmount, findMatch, buildMessage, redactBalance, nameInText, sameDeposit, DEFAULT_TEMPLATE,
 } from './parse.js';
 
 const KW_API = 'https://api.kakaowork.com/v1/';
 const DAY = 86400000;
 const DEDUP_MS = 10 * 60 * 1000;   // 같은 알림이 10분 안에 또 오면 무시
+const CROSS_APP_MS = 5 * 60 * 1000; // 다른 앱(기업은행/토스)에서 온 같은 입금 알림 판단 시간
 const KEEP_DAYS = 60;              // 입금 기록 보관 기간
 const RETRO_MS = DAY;              // 명단 등록 시 최근 24시간 미매칭 입금도 다시 확인
 
@@ -150,6 +151,14 @@ async function handleNotify(request, env) {
   await env.DB.prepare("DELETE FROM pending WHERE status != 'waiting' AND created_at < ?1").bind(now - KEEP_DAYS * DAY).run();
 
   const amount = extractAmount(text);
+  // 다른 앱에서 먼저 온 같은 입금이면 무시 (기업은행 앱 + 토스 앱 동시 알림)
+  if (amount) {
+    const { results: recent } = await env.DB.prepare(
+      "SELECT text, amount FROM deposits WHERE amount = ?1 AND received_at >= ?2"
+    ).bind(amount, now - CROSS_APP_MS).all();
+    if (recent.some((r) => sameDeposit(r, { text, amount }))) return json({ ok: true, result: 'duplicate', reason: '다른 앱에서 온 같은 입금' });
+  }
+
   const ins = await env.DB.prepare(
     "INSERT INTO deposits (received_at, text, hash, amount, status) VALUES (?1, ?2, ?3, ?4, 'unmatched') RETURNING id"
   ).bind(now, redactBalance(text), hash, amount).first();
