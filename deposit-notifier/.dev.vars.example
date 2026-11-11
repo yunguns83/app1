@@ -1,0 +1,4 @@
+# 로컬 테스트용 (`cp .dev.vars.example .dev.vars` 후 `npm run dev`)
+KAKAOWORK_APP_KEY=봇-App-Key
+APP_PASSWORD=직원용-비밀번호
+NOTIFY_TOKEN=휴대폰-전송용-긴-토큰

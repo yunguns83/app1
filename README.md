@@ -35,3 +35,8 @@ python3 -m http.server 8080
 | `db.js` | IndexedDB 저장소 |
 | `sw.js` | 오프라인 캐시 (파일 수정 후 배포 시 `CACHE` 버전 올리기) |
 | `manifest.webmanifest`, `icons/` | 설치 정보와 아이콘 |
+
+---
+
+## 다른 앱
+- [`deposit-notifier/`](deposit-notifier/) — 계좌이체 입금을 카카오워크로 알려주는 PWA (한의원용)

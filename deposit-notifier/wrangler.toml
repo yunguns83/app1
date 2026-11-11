@@ -1,0 +1,19 @@
+name = "deposit-notifier"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+# PWA 화면 파일
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# 데이터베이스: `npx wrangler d1 create deposit-notifier` 실행 후 나온 database_id 를 아래에 붙여넣기
+[[d1_databases]]
+binding = "DB"
+database_name = "deposit-notifier"
+database_id = "여기에-database_id-붙여넣기"
+
+# 비밀값은 여기 적지 말고 아래 명령으로 등록하세요 (README 참고)
+#   npx wrangler secret put KAKAOWORK_APP_KEY   # 카카오워크 봇 App Key
+#   npx wrangler secret put APP_PASSWORD        # 직원용 앱 비밀번호
+#   npx wrangler secret put NOTIFY_TOKEN        # 휴대폰(MacroDroid) 전송용 토큰

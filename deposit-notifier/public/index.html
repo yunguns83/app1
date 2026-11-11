@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f8f7e">
+  <meta name="description" content="계좌이체 입금을 확인해 카카오워크로 알려주는 앱">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="입금알림">
+  <title>입금 알림</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 로그인 -->
+  <section id="login" class="login" hidden>
+    <img src="icons/icon.svg" alt="" width="72" height="72">
+    <h1>입금 알림</h1>
+    <form id="loginForm">
+      <input id="pw" type="password" placeholder="앱 비밀번호" autocomplete="current-password" required>
+      <button class="primary" type="submit">시작하기</button>
+      <p id="loginErr" class="err"></p>
+    </form>
+  </section>
+
+  <section id="main" hidden>
+    <header class="topbar">
+      <h1>입금 알림</h1>
+      <span id="conn" class="conn" title="카카오워크 연결 상태"></span>
+      <button id="installBtn" class="ghost" hidden>설치</button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="waiting" class="on">입금 대기 <b id="cntWaiting"></b></button>
+      <button role="tab" data-tab="deposits">입금 내역 <b id="cntUnmatched" class="warn"></b></button>
+      <button role="tab" data-tab="settings">설정</button>
+    </nav>
+
+    <!-- 입금 대기 -->
+    <div id="tab-waiting" class="tab">
+      <form id="addForm" class="card form">
+        <div class="row">
+          <input id="fPatient" placeholder="환자 이름 *" required autocomplete="off">
+          <input id="fAmount" placeholder="예상 금액" inputmode="numeric" autocomplete="off">
+        </div>
+        <details>
+          <summary>입금자 이름이 다르면 (보호자 등) · 메모</summary>
+          <div class="row">
+            <input id="fDepositor" placeholder="입금자 이름" autocomplete="off">
+            <input id="fMemo" placeholder="메모" autocomplete="off">
+          </div>
+        </details>
+        <button class="primary" type="submit">계좌이체 예정 등록</button>
+      </form>
+      <h2>입금 기다리는 중</h2>
+      <ul id="waitingList" class="list"></ul>
+      <h2>최근 확인 완료</h2>
+      <ul id="doneList" class="list muted"></ul>
+    </div>
+
+    <!-- 입금 내역 -->
+    <div id="tab-deposits" class="tab" hidden>
+      <p class="hint">통장에 들어온 <b>입금</b> 알림만 표시됩니다 (출금·결제는 저장하지 않음). 명단에 없는 입금은 직접 환자를 골라 보낼 수 있어요.</p>
+      <ul id="depositList" class="list"></ul>
+    </div>
+
+    <!-- 설정 -->
+    <div id="tab-settings" class="tab" hidden>
+      <div class="card">
+        <h3>카카오워크 대화방</h3>
+        <p id="convNow" class="hint"></p>
+        <div class="row">
+          <select id="convSelect"><option value="">대화방 목록 불러오기 →</option></select>
+          <button id="convLoad" class="ghost" type="button">불러오기</button>
+        </div>
+        <details>
+          <summary>새 단체방 만들기 (직원 카카오워크 이메일)</summary>
+          <textarea id="emails" rows="2" placeholder="a@clinic.com, b@clinic.com"></textarea>
+          <button id="convOpen" class="ghost" type="button">봇이 단체방 열기</button>
+        </details>
+        <button id="testSend" class="ghost" type="button">테스트 메시지 보내기</button>
+      </div>
+
+      <div class="card">
+        <h3>메시지 형식</h3>
+        <p class="hint">사용 가능: {환자} {금액} {입금자} {시각} {메모}</p>
+        <textarea id="template" rows="4"></textarea>
+        <label class="inline">입금 대기 유지 기간 <input id="expireDays" type="number" min="1" max="60"> 일</label>
+        <button id="saveSettings" class="primary" type="button">저장</button>
+      </div>
+
+      <div class="card">
+        <h3>알림 문구 시험</h3>
+        <p class="hint">은행 알림 문구를 붙여넣어 입금으로 인식되는지 확인합니다. (저장·전송 안 함)</p>
+        <textarea id="parseText" rows="3" placeholder="[KB]11/11 10:23 123456**789 홍길동 입금 50,000 잔액1,234,567"></textarea>
+        <button id="parseBtn" class="ghost" type="button">확인</button>
+        <p id="parseResult" class="result"></p>
+      </div>
+
+      <div class="card">
+        <h3>휴대폰 연결 주소 (MacroDroid)</h3>
+        <code id="notifyUrl" class="code"></code>
+        <p class="hint">TOKEN 자리에 서버에 등록한 NOTIFY_TOKEN 값을 넣으세요. 자세한 방법은 README 참고.</p>
+      </div>
+
+      <button id="logout" class="ghost danger" type="button">로그아웃</button>
+    </div>
+  </section>
+
+  <!-- 직접 보내기 -->
+  <dialog id="sendDlg">
+    <form method="dialog" id="sendForm">
+      <h3>카카오워크로 보내기</h3>
+      <p id="sendText" class="raw"></p>
+      <label>환자 선택 <select id="sendPick"></select></label>
+      <input id="sendPatient" placeholder="또는 환자 이름 직접 입력" autocomplete="off">
+      <input id="sendAmount" placeholder="금액" inputmode="numeric" autocomplete="off">
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>취소</button>
+        <button value="ok" class="primary" id="sendOk">보내기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
