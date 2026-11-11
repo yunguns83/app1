@@ -71,7 +71,7 @@ Play 스토어에서 **MacroDroid** 설치 → 새 매크로:
   - 방식: `POST`
   - URL: 앱 **설정 탭 → 휴대폰 연결 주소 → [주소 복사]** 한 것을 붙여넣기
   - 본문(Body) 형식: `text/plain`
-  - 본문: `[not_title] [notification]` (알림 제목 + 내용 변수)
+  - 본문: `{not_title} {notification}` (알림 제목 + 내용 변수, 입력 칸 옆 [ … ] 버튼으로 넣기. 버전에 따라 `[not_title] [notification]`)
 - 저장 후 MacroDroid에 **알림 접근 권한**을 허용하고, 설정 → 배터리에서 MacroDroid를 **'제한 없음'**으로 둡니다. (안 하면 몇 시간 뒤 멈출 수 있음)
 
 > 트리거에서 `입금`으로 거르는 건 불필요한 전송을 줄이는 용도이고, 서버에서도 다시 한 번 입금만 골라냅니다.
