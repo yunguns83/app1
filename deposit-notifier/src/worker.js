@@ -2,6 +2,7 @@
 import {
   isDeposit, extractAmount, findMatch, buildMessage, redactBalance, nameInText, sameDeposit, DEFAULT_TEMPLATE,
 } from './parse.js';
+import STATIC from './static.gen.js';
 
 const KW_API = 'https://api.kakaowork.com/v1/';
 const DAY = 86400000;
@@ -349,11 +350,23 @@ async function api(request, env, path) {
   return fail('없는 주소입니다', 404);
 }
 
+// 화면 파일 (scripts/build-static.mjs 가 public/ 을 묶어 둔 것)
+const decoded = new Map();
+function serveStatic(path) {
+  const key = path === '/' ? '/index.html' : path;
+  const f = STATIC[key];
+  if (!f) return new Response('Not found', { status: 404 });
+  if (!decoded.has(key)) decoded.set(key, Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0)));
+  return new Response(decoded.get(key), {
+    headers: { 'Content-Type': f.type, 'Cache-Control': key === '/sw.js' || key === '/index.html' ? 'no-cache' : 'public, max-age=3600' },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
-    if (!path.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (!path.startsWith('/api/')) return serveStatic(path);
 
     try {
       if (path === '/api/notify') {

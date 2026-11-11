@@ -123,5 +123,5 @@ npm run dev                                # http://localhost:8787
 | `src/worker.js` | 서버 API (알림 수신, 명단, 카카오워크 전송) |
 | `src/parse.js` | 입금 판별, 금액 추출, 이름 매칭 |
 | `schema.sql` | 데이터베이스 표 |
-| `public/` | PWA 화면 (`sw.js`의 `CACHE` 버전은 화면 수정 시 올리기) |
+| `public/` | PWA 화면 (`sw.js`의 `CACHE` 버전은 화면 수정 시 올리기). 배포 때 `scripts/build-static.mjs`가 Worker 코드 안에 묶음 |
 | `test/` | 테스트 |

@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "dev": "wrangler dev",
+    "build": "node scripts/build-static.mjs",
+    "dev": "npm run build && wrangler dev",
     "db:init": "wrangler d1 execute deposit-notifier --remote --file=schema.sql",
-    "deploy": "wrangler deploy"
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
